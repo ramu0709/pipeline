@@ -40,14 +40,20 @@ pipeline {
             }
             post {
                 always {
-                    junit 'target/surefire-reports/*.xml'
+                    script {
+                        if (fileExists('target/surefire-reports')) {
+                            junit 'target/surefire-reports/*.xml'
+                        } else {
+                            echo '⚠️ No test reports found — skipping JUnit results publishing.'
+                        }
+                    }
                 }
             }
         }
 
         stage('Code Coverage') {
             steps {
-                sh 'mvn verify jacoco:report'
+                sh 'mvn verify org.jacoco:jacoco-maven-plugin:report'
             }
             post {
                 always {
@@ -66,13 +72,14 @@ pipeline {
                 withSonarQubeEnv('SonarQube') {
                     sh """
                     mvn sonar:sonar \
-                        -Dsonar.projectKey=${APP_NAME} \
-                        -Dsonar.projectName=${APP_NAME} \
-                        -Dsonar.host.url=${SONARQUBE_URL} \
-                        -Dsonar.login=${SONARQUBE_TOKEN} \
-                        -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
-                        -Dsonar.exclusions=**/test/** \
-                        -Dsonar.java.coveragePlugin=jacoco
+                      -Dsonar.host.url=${SONARQUBE_URL} \
+                      -Dsonar.login=${SONARQUBE_TOKEN} \
+                      -Dsonar.projectKey=${APP_NAME} \
+                      -Dsonar.projectName=${APP_NAME} \
+                      -Dsonar.java.coveragePlugin=jacoco \
+                      -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+                      -Dsonar.exclusions=**/test/** \
+                      -Dsonar.coverage.minimum=80.0
                     """
                 }
             }
@@ -90,9 +97,17 @@ pipeline {
             steps {
                 script {
                     def pom = readMavenPom file: "pom.xml"
-                    def artifact = findFiles(glob: "target/*.jar")[0].path
+                    def files = findFiles(glob: "target/*.jar")
+                    if (files.length == 0) {
+                        error "❌ No JAR files found in target directory!"
+                    }
 
-                    if (fileExists(artifact)) {
+                    def artifactPath = files[0].path
+                    def artifactExists = fileExists(artifactPath)
+
+                    if (artifactExists) {
+                        echo "📦 Uploading ${artifactPath} to Nexus"
+
                         nexusArtifactUploader(
                             nexusVersion: 'nexus3',
                             protocol: 'http',
@@ -102,12 +117,12 @@ pipeline {
                             repository: NEXUS_REPOSITORY,
                             credentialsId: NEXUS_CREDENTIAL_ID,
                             artifacts: [
-                                [artifactId: pom.artifactId, classifier: '', file: artifact, type: pom.packaging],
+                                [artifactId: pom.artifactId, classifier: '', file: artifactPath, type: pom.packaging],
                                 [artifactId: pom.artifactId, classifier: '', file: "pom.xml", type: "pom"]
                             ]
                         )
                     } else {
-                        error "*** JAR file not found: ${artifact}"
+                        error "❌ Artifact file not found: ${artifactPath}"
                     }
                 }
             }
@@ -115,12 +130,11 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'mkdir -p docker && cp target/*.jar docker/'
-
+                sh 'cp target/*.jar docker/'
                 sh """
-                docker build -t ${APP_NAME}:${APP_VERSION} docker \
-                    --build-arg JAR_FILE=\$(ls docker/*.jar | xargs -n 1 basename) \
-                    --build-arg USER=ramu
+                docker build -t ${APP_NAME}:${APP_VERSION} ./docker \
+                --build-arg JAR_FILE=\$(ls docker/*.jar | xargs -n 1 basename) \
+                --build-arg USER=ramu
                 """
             }
         }
@@ -137,10 +151,10 @@ pipeline {
         stage('Deploy to Tomcat') {
             steps {
                 sh """
-                docker run -d --rm --name ${APP_NAME} \
-                    -p 8080:8080 \
-                    -u ramu \
-                    ${DOCKER_REGISTRY}/${APP_NAME}:${APP_VERSION}
+                docker run -d --name ${APP_NAME} \
+                -p 8080:8080 \
+                -u ramu \
+                ${DOCKER_REGISTRY}/${APP_NAME}:${APP_VERSION}
                 """
             }
         }
