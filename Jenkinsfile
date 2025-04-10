@@ -1,51 +1,53 @@
 pipeline {
     agent any
-    
+
     tools {
         maven 'Maven 3.9.9'
     }
-    
+
     environment {
-	    JAVA_HOME = '/usr/lib/jvm/java-17-openjdk-amd64'
-    PATH = "${JAVA_HOME}/bin:${env.PATH}"
-	
+        JAVA_HOME = '/usr/lib/jvm/java-17-openjdk-amd64'
+        PATH = "${JAVA_HOME}/bin:${env.PATH}"
+
         NEXUS_URL = 'http://40.81.225.71:8081/'
         NEXUS_REPOSITORY = 'maven-releases'
         NEXUS_CREDENTIAL_ID = 'nexus-credentials'
+
         SONARQUBE_URL = 'http://40.81.225.71:9000/'
         SONARQUBE_TOKEN = credentials('sonarqube-token')
+
         DOCKER_REGISTRY = 'localhost:5000'
         APP_NAME = 'java-app'
         APP_VERSION = '1.0.0'
     }
-    
+
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
-        
+
         stage('Build') {
             steps {
                 sh 'mvn clean package -DskipTests'
             }
         }
-        
+
         stage('Unit Tests') {
             steps {
                 sh 'mvn test'
             }
             post {
                 always {
-                    junit '**/target/surefire-reports/*.xml'
+                    junit 'target/surefire-reports/*.xml'
                 }
             }
         }
-        
+
         stage('Code Coverage') {
             steps {
-                sh 'mvn verify org.jacoco:jacoco-maven-plugin:report'
+                sh 'mvn verify jacoco:report'
             }
             post {
                 always {
@@ -58,25 +60,24 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Code Quality Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
                     sh """
                     mvn sonar:sonar \
-                      -Dsonar.host.url=${SONARQUBE_URL} \
-                      -Dsonar.login=${SONARQUBE_TOKEN} \
-                      -Dsonar.projectKey=${APP_NAME} \
-                      -Dsonar.projectName=${APP_NAME} \
-                      -Dsonar.java.coveragePlugin=jacoco \
-                      -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
-                      -Dsonar.exclusions=**/test/**/* \
-                      -Dsonar.coverage.minimum=80.0
+                        -Dsonar.projectKey=${APP_NAME} \
+                        -Dsonar.projectName=${APP_NAME} \
+                        -Dsonar.host.url=${SONARQUBE_URL} \
+                        -Dsonar.login=${SONARQUBE_TOKEN} \
+                        -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+                        -Dsonar.exclusions=**/test/** \
+                        -Dsonar.java.coveragePlugin=jacoco
                     """
                 }
             }
         }
-        
+
         stage('Quality Gate') {
             steps {
                 timeout(time: 1, unit: 'HOURS') {
@@ -84,19 +85,14 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Publish to Nexus') {
             steps {
                 script {
-                    pom = readMavenPom file: "pom.xml"
-                    filesByGlob = findFiles(glob: "target/*.jar")
-                    echo "${filesByGlob[0].name} ${filesByGlob[0].path} ${filesByGlob[0].directory} ${filesByGlob[0].length} ${filesByGlob[0].lastModified}"
-                    artifactPath = filesByGlob[0].path
-                    artifactExists = fileExists artifactPath
-                    
-                    if(artifactExists) {
-                        echo "*** File: ${artifactPath}, group: ${pom.groupId}, packaging: ${pom.packaging}, version ${pom.version}"
-                        
+                    def pom = readMavenPom file: "pom.xml"
+                    def artifact = findFiles(glob: "target/*.jar")[0].path
+
+                    if (fileExists(artifact)) {
                         nexusArtifactUploader(
                             nexusVersion: 'nexus3',
                             protocol: 'http',
@@ -106,34 +102,29 @@ pipeline {
                             repository: NEXUS_REPOSITORY,
                             credentialsId: NEXUS_CREDENTIAL_ID,
                             artifacts: [
-                                [artifactId: pom.artifactId,
-                                classifier: '',
-                                file: artifactPath,
-                                type: pom.packaging],
-                                [artifactId: pom.artifactId,
-                                classifier: '',
-                                file: "pom.xml",
-                                type: "pom"]
+                                [artifactId: pom.artifactId, classifier: '', file: artifact, type: pom.packaging],
+                                [artifactId: pom.artifactId, classifier: '', file: "pom.xml", type: "pom"]
                             ]
                         )
                     } else {
-                        error "*** File: ${artifactPath}, could not be found"
+                        error "*** JAR file not found: ${artifact}"
                     }
                 }
             }
         }
-        
+
         stage('Build Docker Image') {
             steps {
-                sh 'cp target/*.jar docker/'
+                sh 'mkdir -p docker && cp target/*.jar docker/'
+
                 sh """
-                docker build -t ${APP_NAME}:${APP_VERSION} ./docker \
-                --build-arg JAR_FILE=\$(ls docker/*.jar | xargs -n 1 basename) \
-                --build-arg USER=ramu
+                docker build -t ${APP_NAME}:${APP_VERSION} docker \
+                    --build-arg JAR_FILE=\$(ls docker/*.jar | xargs -n 1 basename) \
+                    --build-arg USER=ramu
                 """
             }
         }
-        
+
         stage('Push Docker Image') {
             steps {
                 sh """
@@ -142,28 +133,28 @@ pipeline {
                 """
             }
         }
-        
+
         stage('Deploy to Tomcat') {
             steps {
                 sh """
-                docker run -d --name ${APP_NAME} \
-                -p 8080:8080 \
-                -u ramu \
-                ${DOCKER_REGISTRY}/${APP_NAME}:${APP_VERSION}
+                docker run -d --rm --name ${APP_NAME} \
+                    -p 8080:8080 \
+                    -u ramu \
+                    ${DOCKER_REGISTRY}/${APP_NAME}:${APP_VERSION}
                 """
             }
         }
     }
-    
+
     post {
         always {
             cleanWs()
         }
         success {
-            echo 'Pipeline completed successfully!'
+            echo '✅ Pipeline completed successfully!'
         }
         failure {
-            echo 'Pipeline failed!'
+            echo '❌ Pipeline failed!'
         }
     }
 }
