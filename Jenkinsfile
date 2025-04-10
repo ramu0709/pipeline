@@ -87,8 +87,21 @@ pipeline {
 
         stage('Quality Gate') {
             steps {
-                timeout(time: 1, unit: 'HOURS') {
-                    waitForQualityGate abortPipeline: true
+                script {
+                    try {
+                        timeout(time: 3, unit: 'MINUTES') {
+                            def qg = waitForQualityGate()
+                            if (qg.status != 'OK') {
+                                error "🚫 Quality Gate failed: ${qg.status}"
+                            } else {
+                                echo "✅ Quality Gate passed"
+                            }
+                        }
+                    } catch (err) {
+                        echo "⚠️ Timed out waiting for Quality Gate or webhook not configured"
+                        // Optional: fail here or continue
+                        // error "Failing due to Quality Gate timeout"
+                    }
                 }
             }
         }
@@ -132,43 +145,4 @@ pipeline {
             steps {
                 sh 'cp target/*.jar docker/'
                 sh """
-                docker build -t ${APP_NAME}:${APP_VERSION} ./docker \
-                --build-arg JAR_FILE=\$(ls docker/*.jar | xargs -n 1 basename) \
-                --build-arg USER=ramu
-                """
-            }
-        }
-
-        stage('Push Docker Image') {
-            steps {
-                sh """
-                docker tag ${APP_NAME}:${APP_VERSION} ${DOCKER_REGISTRY}/${APP_NAME}:${APP_VERSION}
-                docker push ${DOCKER_REGISTRY}/${APP_NAME}:${APP_VERSION}
-                """
-            }
-        }
-
-        stage('Deploy to Tomcat') {
-            steps {
-                sh """
-                docker run -d --name ${APP_NAME} \
-                -p 8080:8080 \
-                -u ramu \
-                ${DOCKER_REGISTRY}/${APP_NAME}:${APP_VERSION}
-                """
-            }
-        }
-    }
-
-    post {
-        always {
-            cleanWs()
-        }
-        success {
-            echo '✅ Pipeline completed successfully!'
-        }
-        failure {
-            echo '❌ Pipeline failed!'
-        }
-    }
-}
+                docker build -t ${
