@@ -3,11 +3,10 @@ pipeline {
     
     tools {
         maven 'Maven 3.9.9'
-        jdk 'JDK 17'
     }
     
     environment {
-	    JAVA_HOME = tool 'JDK 17'
+	    JAVA_HOME = '/usr/lib/jvm/java-17-openjdk-amd64'
     PATH = "${JAVA_HOME}/bin:${env.PATH}"
 	
         NEXUS_URL = 'http://40.81.225.71:8081/'
