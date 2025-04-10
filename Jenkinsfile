@@ -7,6 +7,9 @@ pipeline {
     }
     
     environment {
+	    JAVA_HOME = tool 'JDK 17'
+    PATH = "${JAVA_HOME}/bin:${env.PATH}"
+	
         NEXUS_URL = 'http://40.81.225.71:8081/'
         NEXUS_REPOSITORY = 'maven-releases'
         NEXUS_CREDENTIAL_ID = 'nexus-credentials'
