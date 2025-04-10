@@ -6,6 +6,9 @@ ARG USER=ramu
 # Create user and group
 RUN groupadd -r ${USER} && useradd -r -g ${USER} ${USER}
 
+# Change Tomcat HTTP connector port from 8080 to 8082
+RUN sed -i 's/port="8080"/port="8082"/' /usr/local/tomcat/conf/server.xml
+
 # Create necessary directories with proper permissions
 RUN mkdir -p /usr/local/tomcat/webapps/ROOT \
     && chown -R ${USER}:${USER} /usr/local/tomcat
@@ -28,8 +31,8 @@ RUN chown -R ${USER}:${USER} /usr/local/tomcat
 # Switch to non-root user
 USER ${USER}
 
-# Expose port
-EXPOSE 8080
+# Expose new port
+EXPOSE 8082
 
-# Command to run Tomcat
+# Start Tomcat
 CMD ["catalina.sh", "run"]
