@@ -65,12 +65,13 @@ pipeline {
 
         stage('Code Quality Analysis') {
             steps {
-                withSonarQubeEnv('SonarQube') {
-                    withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                // Inject the SonarQube token securely.
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    withSonarQubeEnv('SonarQube') {
                         sh """
                         mvn sonar:sonar \
                           -Dsonar.host.url=${SONARQUBE_URL} \
-                          -Dsonar.login=${SONAR_TOKEN} \
+                          -Dsonar.login=$SONAR_TOKEN \
                           -Dsonar.projectKey=${APP_NAME} \
                           -Dsonar.projectName=${APP_NAME} \
                           -Dsonar.java.coveragePlugin=jacoco \
@@ -102,9 +103,7 @@ pipeline {
                     }
 
                     def artifactPath = files[0].path
-                    def artifactExists = fileExists(artifactPath)
-
-                    if (artifactExists) {
+                    if (fileExists(artifactPath)) {
                         echo "📦 Uploading ${artifactPath} to Nexus"
 
                         nexusArtifactUploader(
