@@ -14,7 +14,6 @@ pipeline {
         NEXUS_CREDENTIAL_ID = 'nexus-credentials'
 
         SONARQUBE_URL = 'http://localhost:9000/'
-        SONARQUBE_TOKEN = credentials('sonarqube-token')
 
         DOCKER_REGISTRY = 'localhost:5000'
         APP_NAME = 'java-app'
@@ -67,17 +66,19 @@ pipeline {
         stage('Code Quality Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
-                    sh """
-                    mvn sonar:sonar \
-                      -Dsonar.host.url=${SONARQUBE_URL} \
-                      -Dsonar.login=${env.SONARQUBE_TOKEN} \
-                      -Dsonar.projectKey=${APP_NAME} \
-                      -Dsonar.projectName=${APP_NAME} \
-                      -Dsonar.java.coveragePlugin=jacoco \
-                      -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
-                      -Dsonar.exclusions=**/test/** \
-                      -Dsonar.coverage.minimum=80.0
-                    """
+                    withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                        sh """
+                        mvn sonar:sonar \
+                          -Dsonar.host.url=${SONARQUBE_URL} \
+                          -Dsonar.login=${SONAR_TOKEN} \
+                          -Dsonar.projectKey=${APP_NAME} \
+                          -Dsonar.projectName=${APP_NAME} \
+                          -Dsonar.java.coveragePlugin=jacoco \
+                          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+                          -Dsonar.exclusions=**/test/** \
+                          -Dsonar.coverage.minimum=80.0
+                        """
+                    }
                 }
             }
         }
