@@ -9,11 +9,11 @@ pipeline {
         JAVA_HOME = '/usr/lib/jvm/java-17-openjdk-amd64'
         PATH = "${JAVA_HOME}/bin:${env.PATH}"
 
-        NEXUS_URL = 'http://40.81.225.71:8081/'
+        NEXUS_URL = 'http://localhost:8081/'
         NEXUS_REPOSITORY = 'maven-releases'
         NEXUS_CREDENTIAL_ID = 'nexus-credentials'
 
-        SONARQUBE_URL = 'http://40.81.225.71:9000/'
+        SONARQUBE_URL = 'http://localhost:9000/'
         SONARQUBE_TOKEN = credentials('sonarqube-token')
 
         DOCKER_REGISTRY = 'localhost:5000'
