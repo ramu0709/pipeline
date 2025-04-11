@@ -70,7 +70,7 @@ pipeline {
                     sh """
                     mvn sonar:sonar \
                       -Dsonar.host.url=${SONARQUBE_URL} \
-                      -Dsonar.login=${SONARQUBE_TOKEN} \
+                      -Dsonar.login=${env.SONARQUBE_TOKEN} \
                       -Dsonar.projectKey=${APP_NAME} \
                       -Dsonar.projectName=${APP_NAME} \
                       -Dsonar.java.coveragePlugin=jacoco \
@@ -83,10 +83,11 @@ pipeline {
         }
 
         stage('Quality Gate') {
+            options {
+                timeout(time: 5, unit: 'MINUTES')
+            }
             steps {
-                timeout(time: 1, unit: 'HOURS') {
-                    waitForQualityGate abortPipeline: true
-                }
+                waitForQualityGate abortPipeline: true
             }
         }
 
