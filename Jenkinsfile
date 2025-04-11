@@ -65,13 +65,12 @@ pipeline {
 
         stage('Code Quality Analysis') {
             steps {
-                // Inject the SonarQube token securely.
                 withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                     withSonarQubeEnv('SonarQube') {
                         sh """
                         mvn sonar:sonar \
                           -Dsonar.host.url=${SONARQUBE_URL} \
-                          -Dsonar.login=$SONAR_TOKEN \
+                          -Dsonar.token=$SONAR_TOKEN \
                           -Dsonar.projectKey=${APP_NAME} \
                           -Dsonar.projectName=${APP_NAME} \
                           -Dsonar.java.coveragePlugin=jacoco \
