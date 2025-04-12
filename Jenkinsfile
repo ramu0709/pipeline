@@ -9,13 +9,13 @@ pipeline {
         JAVA_HOME = '/usr/lib/jvm/java-17-openjdk-amd64'
         PATH = "${JAVA_HOME}/bin:${env.PATH}"
 
-        NEXUS_URL = 'http://localhost:8081/'
+        NEXUS_URL = 'http://172.21.40.70:8081/'
         NEXUS_REPOSITORY = 'maven-releases'
         NEXUS_CREDENTIAL_ID = 'nexus-credentials'
 
-        SONARQUBE_URL = 'http://localhost:9000/'
+        SONARQUBE_URL = 'http://172.21.40.70:9000/'
 
-        DOCKER_REGISTRY = 'localhost:5000'
+        DOCKER_REGISTRY = '172.21.40.70:5000'
         APP_NAME = 'java-app'
         APP_VERSION = '1.0.0'
     }
