@@ -152,7 +152,7 @@ pipeline {
             steps {
                 sh """
                 docker run -d --name ${APP_NAME} \
-                -p 8080:8080 \
+                -p 8082:8080 \
                 -u ramu \
                 ${DOCKER_REGISTRY}/${APP_NAME}:${APP_VERSION}
                 """
