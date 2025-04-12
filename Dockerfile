@@ -16,7 +16,7 @@ RUN mkdir -p /usr/local/tomcat/webapps/ROOT \
 # Set working directory
 WORKDIR /usr/local/tomcat/webapps/ROOT
 
-# Copy the JAR file
+# Copy the JAR file into the container
 COPY ${JAR_FILE} app.jar
 
 # Install necessary tools
