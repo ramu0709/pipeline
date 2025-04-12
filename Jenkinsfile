@@ -128,11 +128,14 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh 'cp target/*.jar docker/'
-                sh """
-                docker build -t ${APP_NAME}:${APP_VERSION} ./docker \
-                --build-arg JAR_FILE=$(ls docker/*.jar | xargs -n 1 basename) \
-                --build-arg USER=ramu
-                """
+                script {
+                    def jarName = sh(script: "ls docker/*.jar | xargs -n 1 basename", returnStdout: true).trim()
+                    sh """
+                    docker build -t ${APP_NAME}:${APP_VERSION} ./docker \
+                    --build-arg JAR_FILE=${jarName} \
+                    --build-arg USER=ramu
+                    """
+                }
             }
         }
 
