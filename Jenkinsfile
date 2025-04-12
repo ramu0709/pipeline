@@ -130,7 +130,7 @@ pipeline {
                 sh 'cp target/*.jar docker/'
                 sh """
                 docker build -t ${APP_NAME}:${APP_VERSION} ./docker \
-                --build-arg JAR_FILE=\$(ls docker/*.jar | xargs -n 1 basename) \
+                --build-arg JAR_FILE=$(ls docker/*.jar | xargs -n 1 basename) \
                 --build-arg USER=ramu
                 """
             }
