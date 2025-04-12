@@ -1,4 +1,4 @@
-FROM tomcat:10-jdk17
+FROM tomcat:9.0.100-jdk17
 
 ARG JAR_FILE
 ARG USER=ramu
